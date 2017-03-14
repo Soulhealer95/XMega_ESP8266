@@ -28,7 +28,10 @@
 #include "Serial_AT_Functions.h"
 
 
+//****************************USART CONFIG FUNCTIONS ***************************
 
+
+//Wait for Pending Transfers to be complete
 void Tx_Wait(void)
 {
 	// Wait for the transmit buffer to be empty
@@ -37,13 +40,14 @@ void Tx_Wait(void)
 		
 }
 
+//Wait for data in read buffer to be read
 void Rx_Wait(void)
 {
 	while( (AT_USART.STATUS & USART_RXCIF_bm) == 0 ); 
 
 }
 
-//case 0 - don't expect a reply case 1 - wait for a reply before proceeding
+//Send a char and wait for the transfer to be complete
 int sendChar(char c)
 {
 	//send data
@@ -55,6 +59,7 @@ int sendChar(char c)
 	return 1;	
 }
 
+//Send an int over serial
 void sendInt(int x)
 {
 	//get the lower byte
@@ -68,7 +73,7 @@ void sendInt(int x)
 
 
 
-//stops after three transfers. can't seem to transfer shit! :P :P 
+//Send a string over serial using sendChar
 void sendString(char* string)
 {
 	int i = 0;
@@ -80,14 +85,15 @@ void sendString(char* string)
 	}
 }
 
-
+//Wait for DMA Transfers to be complete
 void DMA_wait(void)
 {
 	
 	while((DMA.STATUS & DMA_CH2BUSY_bm)!= 0){};
 }
 
-//enable DMA channel 0
+
+//enable DMA channel 2 for RX
 void Rx_DMA_Conf(void)
 {
 	//reset DMA (before enabling)
@@ -100,56 +106,58 @@ void Rx_DMA_Conf(void)
 	DMA.CTRL |= DMA_ENABLE_bm;//0x80;
 	
 	//set burst transfer length to 1-Bytes (bit 1 and 0 set to: 01) and enable single shot transfer
-	DMA.CH2.CTRLA |=  (DMA_CH_BURSTLEN_1BYTE_gc | DMA_CH_SINGLE_bm);
+	AT_DMACH.CTRLA |=  (DMA_CH_BURSTLEN_1BYTE_gc | DMA_CH_SINGLE_bm);
 	
-	DMA.CH2.ADDRCTRL |=	 (DMA_CH_SRCRELOAD_NONE_gc | DMA_CH_SRCDIR_FIXED_gc | DMA_CH_DESTRELOAD_NONE_gc | DMA_CH_DESTDIR_INC_gc);	
+	AT_DMACH.ADDRCTRL |=	 (DMA_CH_SRCRELOAD_NONE_gc | DMA_CH_SRCDIR_FIXED_gc | DMA_CH_DESTRELOAD_NONE_gc | DMA_CH_DESTDIR_INC_gc);	
 	
 	//setting up interrupts
 	
-	//Enable global interrupts. yes, again!
-	//sei();
-	
-	PMIC_CTRL |= PMIC_HILVLEN_bm;  //0x04; // enable high level interrupts (3rd bit)
+	//Enable interrupts
+	PMIC_CTRL |= PMIC_HILVLEN_bm; 
 	
 	//enable and configure to trigger at high priority by setting the bits at 0x03
-	DMA.CH2.CTRLB |=  0x03;
-	
-	//reload the source address(msb) and destination (lsb) after every transaction (0xc0) and keep it fixed (0x00)
-	//DMA.CH0.ADDRCTRL |= 0xcc;
-	
-	//select Trigger Source as AT_USART Receive complete (0x8B + 0x00) and not DRE empty (0x01)
-	DMA.CH2.TRIGSRC |=   (0x8B + 0x00);
+	AT_DMACH.CTRLB |=  0x03;
+
+	//select Trigger Source as AT_USART Receive complete (0x8B + 0x00) S
+	AT_DMACH.TRIGSRC |=   (0x8B + 0x00);
 	
 	//set the number of bytes
-	DMA.CH2.TRFCNT = 2048;
+	AT_DMACH.TRFCNT = BUFF_LEN/2;
 	
-	//configure DMA source address to ADCA CH2's result
+	//configure DMA source address to USART DATA and destination to buffer array
 	Byte AT_USART_Lowernib_bm =  (((uint16_t) &AT_USART.DATA >> 0) & 0xFF);
 	Byte AT_USART_Highernib_bm = ((((uint16_t) &AT_USART.DATA >> 8) & 0xFF));
-	Byte DACB_Lowernib_bm =  (((uint16_t) &BUFFER[0] >> 0) & 0xFF);//(((uint16_t) &DACB.CH1DATA >> 0) & 0xFF);
+	Byte DACB_Lowernib_bm =  (((uint16_t) &BUFFER[0] >> 0) & 0xFF);
 	Byte DACB_Highernib_bm = (((uint16_t) &BUFFER[0] >> 8) & 0xFF);
 
-	DMA.CH2.SRCADDR0 = AT_USART_Lowernib_bm; //((ADCA_CH0_RES & 0x00FF) >> 8);// 0x34;    //    //(ADCA.CH0.RESL);//Doesn't change/ Looking for value?
-	DMA.CH2.SRCADDR1 =  AT_USART_Highernib_bm; //((ADCA_CH0_RES & 0xFF00) >> 8);//0x02;    //
-	DMA.CH2.SRCADDR2  = 0x00;
+	AT_DMACH.SRCADDR0 = AT_USART_Lowernib_bm; 
+	AT_DMACH.SRCADDR1 =  AT_USART_Highernib_bm; 
+	AT_DMACH.SRCADDR2  = 0x00;
 	
 	//Configure DMA destination address to DACB CH1's input
-	DMA.CH2.DESTADDR0 = DACB_Lowernib_bm; //  0x38;//DACB_CH0DATA; address 0x0338
-	DMA.CH2.DESTADDR1 = DACB_Highernib_bm; //0x03;//DACB_CH0DATA;
-	DMA.CH2.DESTADDR0 = 0x00;
+	AT_DMACH.DESTADDR0 = DACB_Lowernib_bm;
+	AT_DMACH.DESTADDR1 = DACB_Highernib_bm;
+	AT_DMACH.DESTADDR0 = 0x00;
 	
 	
 	//enable DMA channel
-	DMA.CH2.CTRLA |=  DMA_ENABLE_bm;//0x80;
+	AT_DMACH.CTRLA |=  DMA_ENABLE_bm;
 }
 
+
+/*
+	last_change_res
+	parameters: none
+	
+	Returns the last updated index in the input buffer
+
+
+*/
 int last_change_res(void)
 {
 	int i = 0;
 	while(i < 1023)
 	{
-
-
 		if(BUFFER[i] == '\0')
 		{
 			return i;
@@ -159,36 +167,30 @@ int last_change_res(void)
 	return 0;
 }
 
+/*
+	return_AT_res
+	parameters: 
+	start_index: int	-index of the buffer at the end of last command
+	
+	Returns the result from the last command executed
+
+*/
 char* return_AT_res(int start_index)
 {
-		memset(AT_output,0,1024*sizeof(char));
+		memset(CURR_BUFFER,0,(BUFF_LEN/4)*sizeof(char));
 
 		int end_s = last_change_res();
 		for(int i=start_index, j=0; i < end_s; i++,j++)
 		{
-			AT_output[j] = BUFFER[i];
+			CURR_BUFFER[j] = BUFFER[i];
 		}
-		return AT_output;
+		return CURR_BUFFER;
 }
 
 
-
-
-
-
-
-void Peripherals_Config(void)
-{
-	
-	//Configure Serial
-	Serial_conf();
-	
-	
-	Rx_DMA_Conf();
-
-}
 
 //****************************AT COMMAND FUNCTIONS ***************************
+
 
 //reset the chip
 char* AT_Reset(void)
@@ -203,7 +205,9 @@ char* AT_Reset(void)
 
 
 /*
-set_id
+AT_set_ssid
+
+Uses AT+CWSAP to change the AP ssid and password settings
 
 Parameters:
 ssid: String, ESP8266’s softAP SSID
@@ -217,7 +221,7 @@ ecn:
 
 */
 
-char* set_id(char* ssid, char* pwd, char* ch, char* ecn)
+char* AT_set_ssid(char* ssid, char* pwd, char* ch, char* ecn)
 {
 	int begin_r = last_change_res();
 	char command[50];
@@ -228,7 +232,17 @@ char* set_id(char* ssid, char* pwd, char* ch, char* ecn)
 		
 }
 
-char* get_id(void)
+
+/*
+get_id
+
+Uses AT+CWSAP to check for AP settings
+
+Parameters:
+None
+
+*/
+char* AT_get_ssid(void)
 {
 	int begin_r = last_change_res();
 	sendString("AT+CWSAP?\r\n");
@@ -238,7 +252,7 @@ char* get_id(void)
 
 
 /*
-Wifi_Mode
+AT_AP_mode
 
 Parameters:
 
@@ -254,7 +268,7 @@ This function does nothing for any other positive values
 */
 
 
-char* WIFI_mode(int mode)
+char* AT_AP_mode(int mode)
 {
 	int begin_r = last_change_res();
 	char command[30];
@@ -286,7 +300,7 @@ to check for connected APs leave ssid ""
 
 */
 
-char* Connect(char* ssid, char* pwd)
+char* AT_APConnect(char* ssid, char* pwd)
 {
 		int begin_r = last_change_res();
 		char command[30];
@@ -304,7 +318,8 @@ char* Connect(char* ssid, char* pwd)
 
 }
 
-char* Disconnect_AP(void)
+//Disconnect from AP
+char* AT_APDisconnect(void)
 {
 	int begin_r = last_change_res();
 	sendString("AT+CWQAP\r\n");
@@ -316,7 +331,7 @@ char* Disconnect_AP(void)
 //***************** LIST APs ***********************
 
 //AT+CWLAP - Lists available APs
-char* List_AP(void)
+char* AT_ListAP(void)
 {
 	int begin_r = last_change_res();
 	sendString("AT+CWLAP\r\n");
@@ -326,7 +341,7 @@ char* List_AP(void)
 
 
 //AT+CWLIF - List clients connected to ESP8266 softAP
-char* List_Clients(void)
+char* AT_ListClients(void)
 {
 	int begin_r = last_change_res();
 	sendString("AT+CWLIF\r\n");
@@ -349,13 +364,13 @@ To get the current values of a mode just leave the ip ""
 */
 
 
-char* AT_ips(char st_ap_loc, char* ip)
+char* AT_ips(char st_ap, char* ip)
 {
 	int begin_r = last_change_res();
 	
 	char command[30];
 	//only do something if st_ap is valid
-	if(st_ap_loc == 'A' || st_ap_loc == 'S')
+	if(st_ap == 'A' || st_ap == 'S')
 	{
 		char* rest;
 		if(ip[0] == '\0')
@@ -369,11 +384,11 @@ char* AT_ips(char st_ap_loc, char* ip)
 			strcat(rest,"\"");
 		}
 	
-		if(st_ap_loc == 'S')
+		if(st_ap == 'S')
 		{
 			sprintf(command,"AT+CIPSTA%s\r\n",rest);
 		}
-		else if (st_ap_loc == 'A')
+		else if (st_ap == 'A')
 		{
 			sprintf(command,"AT+CIPAP%s\r\n",rest);
 		}
@@ -390,7 +405,7 @@ char* AT_ips(char st_ap_loc, char* ip)
 
 
 /*
-ip_Stop
+AT_IP_Close
 
 Uses AT+CIPCLOSE - Close TCP or UDP connection
 
@@ -403,7 +418,7 @@ if id == 6 tests command
 In server mode, id = 5 has no effect!
 negative ids have no effect!
 */
-char* ip_Stop(int id)
+char* AT_IP_Close(int id)
 {
 	int begin_r = last_change_res();
 	char command[30];
@@ -435,6 +450,7 @@ char* ip_Stop(int id)
 
 //Change connections mode
 /*
+AT_MUX
 
 Uses AT+CIPMUX - Enable multiple connections or not
 Parameters:
@@ -460,7 +476,7 @@ char* AT_MUX(int mode)
 	else if (mode < 2)
 	{
 		//stop all connections
-		ip_Stop(5);
+		AT_IP_Close(5);
 		
 		//change mode
 		
@@ -476,6 +492,7 @@ char* AT_MUX(int mode)
 //AT+CIPSTART - Establish TCP connection or register UDP port and start a connection
 //only need single connection
 /*
+AT_IP_Start
 
 Parameters:
 
@@ -485,7 +502,7 @@ addr: String, remote IP
 port: String, remote port
 
 */
-char* ip_Start(int id, char* type, char* addr, int port)
+char* AT_IP_Start(int id, char* type, char* addr, int port)
 {
 	int start_s = last_change_res();
 	char command[50];
@@ -571,8 +588,8 @@ char* AT_sendData(int id, char* data)
 
 
 
-
-char* get_local_ip(void)
+//returns the IP configurations of AP and Station mode
+char* AT_ifconfig(void)
 {
 	int begin_r = last_change_res();
 	sendString("AT+CIFSR\r\n");
@@ -581,6 +598,7 @@ char* get_local_ip(void)
 }
 
 /*
+AT_Server_Conf
 Parameters:
 
 mode:
@@ -597,7 +615,7 @@ When a client is connected to the server, it will take up one connection?be gave
 */
 
 
-char* AT_Server(int mode, int port)
+char* AT_Server_Conf(int mode, int port)
 {
 	int begin_r = last_change_res();
 	char command[40];
@@ -622,7 +640,19 @@ char* AT_Server(int mode, int port)
 	return return_AT_res(begin_r+1+ strlen(command));
 }
 
-char* AT_S_Time(int timeout)
+/*
+AT_STimeout
+
+Uses AT+CIPSTO command to change the timeout
+ 
+Parameters:
+
+timeout: int, the time in seconds
+
+
+*/
+
+char* AT_STimeout(int timeout)
 {
 	int begin_r = last_change_res();
 	char command[30];

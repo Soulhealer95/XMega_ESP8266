@@ -62,6 +62,7 @@
 #define BUFF_LEN 4096
 #define LIMIT 1024
 #define AT_USART USARTE0
+#define AT_DMACH DMA.CH2
 #define Byte char
 
 char str_res[BUFF_LEN];
@@ -69,6 +70,7 @@ char AT_output[BUFF_LEN/4];
 
 // Definitions based on the variables
 #define BUFFER str_res
+#define CURR_BUFFER AT_output
 
 
 //Serial Functions
@@ -83,36 +85,36 @@ void sendString(char* string);
 
 
 // AT Functions
-char* set_id(char* ssid, char* pwd, char* ch, char* ecn);
-char* get_id(void);
+char* AT_set_ssid(char* ssid, char* pwd, char* ch, char* ecn);
+char* AT_get_ssid(void);
 
-char* WIFI_mode(int mode);
+char* AT_AP_mode(int mode);
 
-char* Connect(char* ssid, char* pwd);
-char* Disconnect_AP(void);
+char* AT_APConnect(char* ssid, char* pwd);
+char* AT_APDisconnect(void);
 
-char* List_AP(void);
-char* List_Clients(void);
+char* AT_ListAP(void);
+char* AT_ListClients(void);
 
 //get ip or set ips
 char* AT_ips(char st_ap_loc, char* ip);
 
 //start a tcp/udp connection
-char* ip_Start(int id, char* type, char* addr, int port);
+char* AT_IP_Start(int id, char* type, char* addr, int port);
 
 //send data
 char* AT_sendData(int id, char* data);
 
-char* ip_Stop(int id);
+char* AT_IP_Close(int id);
 
 //config server
-char* AT_Server(int mode, int port);
+char* AT_Server_Conf(int mode, int port);
 
 //set server timeout
-char* AT_S_Time(int timeout);
+char* AT_STimeout(int timeout);
 
 
 char* AT_Reset(void);
 char* AT_MUX(int mode);
-char* get_local_ip(void);
+char* AT_ifconfig(void);
 
