@@ -63,6 +63,7 @@
 #define LIMIT 1024
 #define AT_USART USARTE0
 #define AT_DMACH DMA.CH2
+#define AT_DMA_vect DMA_CH2_vect
 #define Byte char
 
 char str_res[BUFF_LEN];

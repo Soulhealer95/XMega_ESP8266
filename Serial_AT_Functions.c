@@ -31,12 +31,49 @@
 //****************************USART CONFIG FUNCTIONS ***************************
 
 
+void Serial_conf(void)
+{
+	// Baud rate selection
+	//For 115200 @ 32 MHz Clock
+	
+
+	//Set clock config accordingly to 32MHz
+		OSC_CTRL |= OSC_RC32MEN_bm;
+				
+		while(!(OSC_STATUS & OSC_RC32MRDY_bm));
+
+		//Trigger protection mechanism				
+		CCP = CCP_IOREG_gc; 
+
+		CLK_CTRL = CLK_SCLKSEL_RC32M_gc;
+	
+
+
+	//BSCALE is  -1(0b0111)   -3 (two's complement form 0b1101)
+		AT_USART.BAUDCTRLB = 0b11010000;
+	
+	//BSEL is 131
+		AT_USART.BAUDCTRLA = 0x83; //33- 21 | 131- 0x83
+	
+	//disable interrupts
+		AT_USART.CTRLA |= (USART_RXCINTLVL_OFF_gc | USART_TXCINTLVL_OFF_gc | USART_DREINTLVL_OFF_gc);
+	
+	//8 data bits, no parity and 1 stop bit
+		AT_USART.CTRLC = USART_CHSIZE_8BIT_gc;
+
+	//Enable receive and transmit
+		AT_USART.CTRLB = USART_TXEN_bm | USART_RXEN_bm; // And enable high speed mode
+}
+
+
+
+
 //Wait for Pending Transfers to be complete
 void Tx_Wait(void)
 {
 	// Wait for the transmit buffer to be empty
-	while (  !(AT_USART.STATUS & USART_DREIF_bm) );
-	AT_USART.STATUS |= PIN6_bm;
+		while (  !(AT_USART.STATUS & USART_DREIF_bm) );
+		AT_USART.STATUS |= PIN6_bm;
 		
 }
 
@@ -86,12 +123,6 @@ void sendString(char* string)
 }
 
 //Wait for DMA Transfers to be complete
-void DMA_wait(void)
-{
-	
-	while((DMA.STATUS & DMA_CH2BUSY_bm)!= 0){};
-}
-
 
 //enable DMA channel 2 for RX
 void Rx_DMA_Conf(void)
@@ -100,7 +131,7 @@ void Rx_DMA_Conf(void)
 	DMA.CTRL |= DMA_RESET_bm;
 
 	//wait DMA to complete pending transfers --> reset
-	DMA_wait();
+	while((DMA.STATUS & DMA_CH2BUSY_bm)!= 0);
 
 	//enable the DMA controller
 	DMA.CTRL |= DMA_ENABLE_bm;//0x80;
