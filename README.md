@@ -5,6 +5,7 @@ This Library contains all the functions pertaining to AT Command set for ESP-01 
  on ESP8266.</br> 
  	</br> 
 Serial Configuration is included, provided you change the Serial Port used defined in AT_USART  </br> 
+Uses DMA to transfer data from USART_DATA to the buffer, DMA channel can be changed by updating the AT_DMACH</br>
   </br> 
  	Buffers str_res and AT_output are used to return result as a string, you need to include them as external variables to utilize them</br>  
  #  Ways to include in your file:</br> 
@@ -14,6 +15,6 @@ Serial Configuration is included, provided you change the Serial Port used defin
  			extern char AT_output[BUFF_LEN/4];</br> </br>
      
 # Adapting to Other AVRs
-  The code can be adapted to other AVRs by changing the Serial Config and sendChar functions as per your uController
+  The code can be adapted to other AVRs by changing the Serial Config and sendChar functions as per your uController. (Note: this includes the controllers with no DMA, you need to add the process of copying the data within receive complete interrupt, in which case, you would have to change the buffers to volatile. 
 
  
