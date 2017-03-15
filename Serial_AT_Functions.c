@@ -229,7 +229,7 @@ char* AT_Reset(void)
 	int begin_r = last_change_res();
 	sendString("AT+RST\r\n");
 	_delay_ms(7000);
-	return return_AT_res(begin_r + strlen("AT+RST\r\n"));
+	return return_AT_res(begin_r);
 }
 
 
@@ -259,7 +259,7 @@ char* AT_set_ssid(char* ssid, char* pwd, char* ch, char* ecn)
 	sprintf(command, "AT+CWSAP=\"%s\",\"%s\",%s,%s\r\n",ssid,pwd,ch,ecn);
 	sendString(command);
 	_delay_ms(2);
-	return return_AT_res(begin_r + strlen(command) +1);
+	return return_AT_res(begin_r );
 		
 }
 
@@ -278,7 +278,7 @@ char* AT_get_ssid(void)
 	int begin_r = last_change_res();
 	sendString("AT+CWSAP?\r\n");
 
-	return return_AT_res(begin_r + strlen("AT+CWSAP?\r\n") +1);
+	return return_AT_res(begin_r);
 }
 
 
@@ -313,7 +313,7 @@ char* AT_AP_mode(int mode)
 		sendString(command);			
 	}
 		_delay_ms(2);
-		return return_AT_res(begin_r + strlen(command) +1);
+		return return_AT_res(begin_r );
 }
 
 
@@ -344,7 +344,7 @@ char* AT_APConnect(char* ssid, char* pwd)
 			sprintf(command, "AT+CWJAP=\"%s\",\"%s\"\r\n",ssid, pwd);
 			sendString(command);
 		}
-			_delay_ms(2);
+			_delay_ms(7000);
 			return return_AT_res(begin_r);
 
 }
@@ -367,7 +367,7 @@ char* AT_ListAP(void)
 	int begin_r = last_change_res();
 	sendString("AT+CWLAP\r\n");
 	_delay_ms(4000);
-	return return_AT_res(begin_r+1+ strlen("AT+CWLAP\r\n"));
+	return return_AT_res(begin_r);
 }
 
 
@@ -377,7 +377,7 @@ char* AT_ListClients(void)
 	int begin_r = last_change_res();
 	sendString("AT+CWLIF\r\n");
 	_delay_ms(2);
-	return return_AT_res(begin_r+1+ strlen("AT+CWLIF\r\n"));
+	return return_AT_res(begin_r);
 }
 
 //************** IP Addresses ********************
@@ -403,16 +403,14 @@ char* AT_ips(char st_ap, char* ip)
 	//only do something if st_ap is valid
 	if(st_ap == 'A' || st_ap == 'S')
 	{
-		char* rest;
+		char rest[20];
 		if(ip[0] == '\0')
 		{
-			rest = "?";
+			sprintf(rest,"?");
 		}
 		else
 		{
-			rest= "=\"";
-			strcat(rest,ip);
-			strcat(rest,"\"");
+			sprintf(rest,"=\"%s\"",ip);
 		}
 	
 		if(st_ap == 'S')
@@ -427,8 +425,8 @@ char* AT_ips(char st_ap, char* ip)
 		sendString(command);
 
 	}
-	_delay_ms(2);
-	return return_AT_res(begin_r+1+ strlen(command));	
+	_delay_ms(1500);
+	return return_AT_res(begin_r);	
 	
 	
 }
@@ -473,7 +471,7 @@ char* AT_IP_Close(int id)
 		}
 	}
 		_delay_ms(2);
-		return return_AT_res(begin_r+1+ strlen(command));
+		return return_AT_res(begin_r);
 }
 
 
@@ -515,7 +513,7 @@ char* AT_MUX(int mode)
 		sendString(command);	
 	}
 	_delay_ms(2);
-	return return_AT_res(begin_r+1+ strlen(command));
+	return return_AT_res(begin_r);
 }
 
 
@@ -558,7 +556,7 @@ char* AT_IP_Start(int id, char* type, char* addr, int port)
 		sendString(command);	
 	}
 
-	return return_AT_res(start_s +1 + strlen(command));
+	return return_AT_res(start_s );
 }
 
 
@@ -614,7 +612,7 @@ char* AT_sendData(int id, char* data)
 		sendString(data);
 	}
 	_delay_ms(2);
-	return return_AT_res(begin_r+1+ strlen(command));
+	return return_AT_res(begin_r);
 }
 
 
@@ -625,7 +623,7 @@ char* AT_ifconfig(void)
 	int begin_r = last_change_res();
 	sendString("AT+CIFSR\r\n");
 	_delay_ms(2);
-	return return_AT_res(begin_r+1+ strlen("AT+CIFSR\r\n"));
+	return return_AT_res(begin_r);
 }
 
 /*
@@ -667,8 +665,8 @@ char* AT_Server_Conf(int mode, int port)
 			AT_Reset();
 		}
 	}
-	_delay_ms(2);
-	return return_AT_res(begin_r+1+ strlen(command));
+	_delay_ms(300);
+	return return_AT_res(begin_r);
 }
 
 /*
@@ -696,6 +694,6 @@ char* AT_STimeout(int timeout)
 		sprintf(command,"AT+CIPSTO=%i\r\n",timeout);
 		sendString(command);
 	}
-	_delay_ms(2);
-	return return_AT_res(begin_r+1+ strlen(command));
+	_delay_ms(300);
+	return return_AT_res(begin_r);
 }
