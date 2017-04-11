@@ -1,8 +1,27 @@
 /*
- * ADC_DMA_DAC.c
- *
+MIT License
+
+Copyright (c) 2017 Shivam Saxena
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
  * Created: 2017-03-24 1:08:39 AM
- *  Author: Test
+ *  Author: Shivam S.
  */ 
 #include "ADC_DMA_DAC.h"
 
@@ -71,7 +90,7 @@ void DAC_init()
 	DACX.CTRLB |= 0x20;
 	
 	//set the reference of DAC to aVcc (bit 3:4 in 01)
-	DACX.CTRLC |= DAC_REFSEL_AREFB_gc;  //0x00;// 1V try?   0x08;
+	DACX.CTRLC |= DAC_REFSEL_AREFB_gc;  
 	
 	
 	//Enabling Events
@@ -80,7 +99,7 @@ void DAC_init()
 	EVSYS.CH2CTRL |= 0x01;
 	
 	//set the event to be triggered by software
-	EVSYS.CH2MUX |= EVSYS_CHMUX_OFF_gc;//EVSYS_CHMUX_ADCA_CH0_gc;
+	EVSYS.CH2MUX |= EVSYS_CHMUX_OFF_gc;
 	
 	//set event channel 2 as trigger source
 	DACX.EVCTRL |= DAC_EVSEL_2_gc;
@@ -126,15 +145,11 @@ void DMA_Conf(void)
 	
 	//reset DMA (before enabling)
 	DMA.CTRL |= DMA_RESET_bm;
-
-	//wait DMA to complete pending transfers --> reset
-	//while((DMA.STATUS & DMA_CH0BUSY_bm)!= 0);
 	
 	Rx_DMA_Conf();
 	Rx_BDMA_Conf();
 	ADC_DMA_Conf();
 	DAC_DMA_Conf();
-//	DAC_DMAStream_Conf();
 }
 
 
@@ -143,7 +158,7 @@ void ADC_DMA_Conf(void)
 {
 	//set burst transfer length to 2-Bytes (bit 1 and 0 set to: 01)
 	//enabling the single mode ensures the channel is never disabled
-	ADC_DMACH.CTRLA = DMA_CH_BURSTLEN_2BYTE_gc | DMA_CH_REPEAT_bm | DMA_CH_SINGLE_bm;					// ADC result is 2 byte 12 bit word
+	ADC_DMACH.CTRLA = DMA_CH_BURSTLEN_2BYTE_gc | DMA_CH_REPEAT_bm | DMA_CH_SINGLE_bm;					
 	
 	
 	ADC_DMACH.ADDRCTRL |=	 (DMA_CH_SRCRELOAD_BURST_gc | DMA_CH_SRCDIR_INC_gc | DMA_CH_DESTRELOAD_BURST_gc | DMA_CH_DESTDIR_INC_gc);
@@ -169,17 +184,15 @@ void ADC_DMA_Conf(void)
 	Byte Buffer_Lowernib_bm =  (((uint16_t) &BUFFER[0] >> 0) & 0xFF);
 	Byte Buffer_Highernib_bm = (((uint16_t) &BUFFER[0] >> 8) & 0xFF);
 
-	ADC_DMACH.SRCADDR0 = ADCA_Lowernib_bm; //((ADCA_CH0_RES & 0x00FF) >> 8);// 0x34;    //    //(ADCCH.RESL);//Doesn't change/ Looking for value?
-	ADC_DMACH.SRCADDR1 =  ADCA_Highernib_bm; //((ADCA_CH0_RES & 0xFF00) >> 8);//0x02;    //
+	ADC_DMACH.SRCADDR0 = ADCA_Lowernib_bm;
+	ADC_DMACH.SRCADDR1 =  ADCA_Highernib_bm; 
 	ADC_DMACH.SRCADDR2  = 0x00;
 	
 	//Configure DMA destination address to DACB CH1's input
-	ADC_DMACH.DESTADDR0 = Buffer_Lowernib_bm; //  0x38;//DACB_CH0DATA; address 0x0338
-	ADC_DMACH.DESTADDR1 = Buffer_Highernib_bm; //0x03;//DACB_CH0DATA;
+	ADC_DMACH.DESTADDR0 = Buffer_Lowernib_bm; 
+	ADC_DMACH.DESTADDR1 = Buffer_Highernib_bm;
 	ADC_DMACH.DESTADDR0 = 0x00;
-	
-	//enable DMA channel
-	//ADC_DMACH.CTRLA |=  DMA_ENABLE_bm;//0x80;
+
 }
 
 //enable DMA channel 0
@@ -189,13 +202,9 @@ void DAC_DMA_Conf(void)
 	
 	DAC_DMACH.REPCNT = SAMPLES;
 	//BURSTLEN IS SIZE OF INT = 2 bytes
-	DAC_DMACH.CTRLA = DMA_CH_BURSTLEN_2BYTE_gc | DMA_CH_REPEAT_bm;					// ADC result is 2 byte 12 bit word
+	DAC_DMACH.CTRLA = DMA_CH_BURSTLEN_2BYTE_gc | DMA_CH_REPEAT_bm;					
 	
 	DAC_DMACH.ADDRCTRL |=	 (DMA_CH_SRCRELOAD_TRANSACTION_gc | DMA_CH_SRCDIR_INC_gc | DMA_CH_DESTRELOAD_BURST_gc | DMA_CH_DESTDIR_INC_gc);	// reload dest after every transaction
-	
-	//setting up interrupts
-	//Enable global interrupts. yes, again!
-	//sei();
 	
 	//TURN OFF INTERRUPTS
 	DAC_DMACH.CTRLB |=  0x00;
@@ -204,7 +213,7 @@ void DAC_DMA_Conf(void)
 	//DAC_DMACH.ADDRCTRL |= 0xcc;
 	
 	//select Trigger Source as Software -- ADCA ch0 (0x10 + 0x02) and not Event System (0x01 + 0x00|0x01|0x02) and not  DACB (0x25 + 0x00|0x01)
-	DAC_DMACH.TRIGSRC |=  0x00;//(0x10 + 0x00); //change this to event channel 0
+	DAC_DMACH.TRIGSRC |=  0x00;
 	
 	//set the number of bytes = number of ints times size of int in bytes (2)
 	DAC_DMACH.TRFCNT = (2*SAMPLES);
@@ -215,17 +224,17 @@ void DAC_DMA_Conf(void)
 	Byte DACB_Lowernib_bm =  (((uint16_t) &DACX.CH1DATA >> 0) & 0xFF);
 	Byte DACB_Highernib_bm = (((uint16_t) &DACX.CH1DATA >> 8) & 0xFF);
 
-	DAC_DMACH.SRCADDR0 = BUFFER_Lowernib_bm; //((ADCA_CH0_RES & 0x00FF) >> 8);// 0x34;    //    //(ADCCH.RESL);//Doesn't change/ Looking for value?
-	DAC_DMACH.SRCADDR1 =  BUFFER_Highernib_bm; //((ADCA_CH0_RES & 0xFF00) >> 8);//0x02;    //
+	DAC_DMACH.SRCADDR0 = BUFFER_Lowernib_bm; 
+	DAC_DMACH.SRCADDR1 =  BUFFER_Highernib_bm; 
 	DAC_DMACH.SRCADDR2  = 0x00;
 	
 	//Configure DMA destination address to DACB CH1's input
-	DAC_DMACH.DESTADDR0 = DACB_Lowernib_bm; //  0x38;//DACB_CH0DATA; address 0x0338
-	DAC_DMACH.DESTADDR1 = DACB_Highernib_bm; //0x03;//DACB_CH0DATA;
+	DAC_DMACH.DESTADDR0 = DACB_Lowernib_bm; 
+	DAC_DMACH.DESTADDR1 = DACB_Highernib_bm; 
 	DAC_DMACH.DESTADDR0 = 0x00;
 	
 	//enable DMA channel
-	DAC_DMACH.CTRLA |=  DMA_ENABLE_bm;//0x80;
+	DAC_DMACH.CTRLA |=  DMA_ENABLE_bm;
 }
 
 ////enable DMA channel 0
@@ -305,7 +314,7 @@ void ADCA_EVENT_enable(void)
 	
 	
 	//Set the Vref bits 4-6 (000- int1v 1V 001- intvcc/1.6 010-Aref on portA 011- ArefB 100-Vcc/2)
-	ADCX.REFCTRL |= ADC_REFSEL_AREFA_gc; //ADC_REFSEL_INTVCC2_gc;//0b00110000; //Vref = Vcc/2
+	ADCX.REFCTRL |= ADC_REFSEL_AREFA_gc; 
 	
 	//selecting 32 MHz clock
 	clock_config(1);
@@ -317,15 +326,15 @@ void ADCA_EVENT_enable(void)
 	sei();
 	
 	// Ensure the conversion complete flag is cleared
-	ADCX.INTFLAGS = ADC_CH2IF_bm; // 0x01
+	ADCX.INTFLAGS = ADC_CH2IF_bm;
 	
 	// Enable Conversion Complete Interrupt with high priority -- turn interrupts off!
 	//ADCCH.INTCTRL |= ADC_CH_INTLVL1_bm | ADC_CH_INTLVL0_bm; // 0x03
 	
-	PMIC_CTRL |= PMIC_HILVLEN_bm;  //0x04; // enable high level interrupts (3rd bit)
+	PMIC_CTRL |= PMIC_HILVLEN_bm;  
 	
 	//turn on ADC
-	ADCX.CTRLA |= ADC_ENABLE_bm; //0x01
+	ADCX.CTRLA |= ADC_ENABLE_bm; 
 	
 }
 
