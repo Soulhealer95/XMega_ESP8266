@@ -122,24 +122,85 @@ void sendString(char* string)
 	}
 }
 
+void RX_Address_Reset(void)
+{
+		//wait for packet to be received
+		//while(strstr(str_res,",CLOSED") != NULL){};
+		AT_DMACH.CTRLA &= ~DMA_ENABLE_bm;	
+		
+		//set burst transfer length to 1-Bytes (bit 1 and 0 set to: 01) and enable single shot transfer and repeat 
+		AT_DMACH.CTRLA |=  (DMA_CH_BURSTLEN_1BYTE_gc | DMA_CH_SINGLE_bm | DMA_CH_REPEAT_bm);
+	
+		//configure DMA source address to USART DATA and destination to buffer array
+		Byte STR_Lowernib_bm =  (((uint16_t) &RXBUFFER[0] >> 0) & 0xFF);
+		Byte STR_Highernib_bm = (((uint16_t) &RXBUFFER[0] >> 8) & 0xFF);
+
+		//Configure DMA destination address to DACB CH1's input
+		AT_DMACH.DESTADDR0 = STR_Lowernib_bm;
+		AT_DMACH.DESTADDR1 = STR_Highernib_bm;
+		AT_DMACH.DESTADDR0 = 0x00;
+		
+		//AT_DMACH.CTRLA |= DMA_ENABLE_bm;
+}
+
+void RX_Backup_Address_Reset(void)
+{
+	//wait for packet to be received
+	//while(strstr(str_res,",CLOSED") != NULL){};
+	AT_DMAB_CH.CTRLA &= ~DMA_ENABLE_bm;
+	
+	//set burst transfer length to 1-Bytes (bit 1 and 0 set to: 01) and enable single shot transfer and repeat
+	AT_DMAB_CH.CTRLA |=  (DMA_CH_BURSTLEN_1BYTE_gc | DMA_CH_SINGLE_bm | DMA_CH_REPEAT_bm);
+	
+	//configure DMA source address to USART DATA and destination to buffer array
+	Byte STR_Lowernib_bm =  (((uint16_t) &RXBUFFER[0] >> 0) & 0xFF);
+	Byte STR_Highernib_bm = (((uint16_t) &RXBUFFER[0] >> 8) & 0xFF);
+
+	//Configure DMA destination address to DACB CH1's input
+	AT_DMAB_CH.DESTADDR0 = STR_Lowernib_bm;
+	AT_DMAB_CH.DESTADDR1 = STR_Highernib_bm;
+	AT_DMAB_CH.DESTADDR0 = 0x00;
+	
+	//AT_DMAB_CH.CTRLA |= DMA_ENABLE_bm;
+}
+
+
+
+
+
+void RX_Toggle_DMACH(int* toggle_bit)
+{
+	if(*toggle_bit == 0)
+	{
+		//start the backup channel
+		AT_DMAB_CH.CTRLA |= DMA_ENABLE_bm;
+		//reset the current channel address
+		RX_Address_Reset();
+		*toggle_bit =1;
+	}
+	else if (*toggle_bit == 1)
+	{
+		//start the main channel
+		AT_DMACH.CTRLA |= DMA_ENABLE_bm;
+		//reset the backup channel address
+		RX_Backup_Address_Reset();
+		*toggle_bit = 0;
+	}
+}
+
 //Wait for DMA Transfers to be complete
 
 //enable DMA channel 2 for RX
 void Rx_DMA_Conf(void)
 {
-	//reset DMA (before enabling)
-	DMA.CTRL |= DMA_RESET_bm;
-
-	//wait DMA to complete pending transfers --> reset
-	while((DMA.STATUS & DMA_CH2BUSY_bm)!= 0);
-
-	//enable the DMA controller
-	DMA.CTRL |= DMA_ENABLE_bm;//0x80;
 	
-	//set burst transfer length to 1-Bytes (bit 1 and 0 set to: 01) and enable single shot transfer
-	AT_DMACH.CTRLA |=  (DMA_CH_BURSTLEN_1BYTE_gc | DMA_CH_SINGLE_bm);
+	//set repeat count to zero to facilitate no reload need
+	AT_DMACH.REPCNT = 1;
 	
-	AT_DMACH.ADDRCTRL |=	 (DMA_CH_SRCRELOAD_NONE_gc | DMA_CH_SRCDIR_FIXED_gc | DMA_CH_DESTRELOAD_NONE_gc | DMA_CH_DESTDIR_INC_gc);	
+	//set burst transfer length to 1-Bytes (bit 1 and 0 set to: 01) and enable single shot transfer and repeat 
+	AT_DMACH.CTRLA |=  (DMA_CH_BURSTLEN_1BYTE_gc | DMA_CH_SINGLE_bm | DMA_CH_REPEAT_bm);
+	
+	AT_DMACH.ADDRCTRL |=(DMA_CH_SRCRELOAD_NONE_gc | DMA_CH_SRCDIR_FIXED_gc | DMA_CH_DESTRELOAD_NONE_gc | DMA_CH_DESTDIR_INC_gc);	
 	
 	//setting up interrupts
 	
@@ -147,19 +208,19 @@ void Rx_DMA_Conf(void)
 	PMIC_CTRL |= PMIC_HILVLEN_bm; 
 	
 	//enable and configure to trigger at high priority by setting the bits at 0x03
-	AT_DMACH.CTRLB |=  0x03;
+	AT_DMACH.CTRLB |=  0x00;//turn off
 
 	//select Trigger Source as AT_USART Receive complete (0x8B + 0x00) S
 	AT_DMACH.TRIGSRC |=   (0x8B + 0x00);
 	
 	//set the number of bytes
-	AT_DMACH.TRFCNT = BUFF_LEN/2;
+	AT_DMACH.TRFCNT = RXBUFF_LEN;
 	
 	//configure DMA source address to USART DATA and destination to buffer array
 	Byte AT_USART_Lowernib_bm =  (((uint16_t) &AT_USART.DATA >> 0) & 0xFF);
 	Byte AT_USART_Highernib_bm = ((((uint16_t) &AT_USART.DATA >> 8) & 0xFF));
-	Byte DACB_Lowernib_bm =  (((uint16_t) &BUFFER[0] >> 0) & 0xFF);
-	Byte DACB_Highernib_bm = (((uint16_t) &BUFFER[0] >> 8) & 0xFF);
+	Byte DACB_Lowernib_bm =  (((uint16_t) &RXBUFFER[0] >> 0) & 0xFF);
+	Byte DACB_Highernib_bm = (((uint16_t) &RXBUFFER[0] >> 8) & 0xFF);
 
 	AT_DMACH.SRCADDR0 = AT_USART_Lowernib_bm; 
 	AT_DMACH.SRCADDR1 =  AT_USART_Highernib_bm; 
@@ -175,6 +236,50 @@ void Rx_DMA_Conf(void)
 	AT_DMACH.CTRLA |=  DMA_ENABLE_bm;
 }
 
+//Backup RX Buffer Channel
+void Rx_BDMA_Conf(void)
+{
+	//set repeat count to zero to facilitate no reload need
+	AT_DMAB_CH.REPCNT = 1;
+	
+	//set burst transfer length to 1-Bytes (bit 1 and 0 set to: 01) and enable single shot transfer and repeat
+	AT_DMAB_CH.CTRLA |=  (DMA_CH_BURSTLEN_1BYTE_gc | DMA_CH_SINGLE_bm | DMA_CH_REPEAT_bm);
+	
+	AT_DMAB_CH.ADDRCTRL |=(DMA_CH_SRCRELOAD_NONE_gc | DMA_CH_SRCDIR_FIXED_gc | DMA_CH_DESTRELOAD_NONE_gc | DMA_CH_DESTDIR_INC_gc);
+	
+	//setting up interrupts
+	
+	//Enable interrupts
+	PMIC_CTRL |= PMIC_HILVLEN_bm;
+	
+	//enable and configure to trigger at high priority by setting the bits at 0x03
+	AT_DMAB_CH.CTRLB |=  0x00;//turn off
+
+	//select Trigger Source as AT_USART Receive complete (0x8B + 0x00) S
+	AT_DMAB_CH.TRIGSRC |=   (0x8B + 0x00);
+	
+	//set the number of bytes
+	AT_DMAB_CH.TRFCNT = RXBUFF_LEN;
+	
+	//configure DMA source address to USART DATA and destination to buffer array
+	Byte AT_USART_Lowernib_bm =  (((uint16_t) &AT_USART.DATA >> 0) & 0xFF);
+	Byte AT_USART_Highernib_bm = ((((uint16_t) &AT_USART.DATA >> 8) & 0xFF));
+	Byte DACB_Lowernib_bm =  (((uint16_t) &RXBUFFER[0] >> 0) & 0xFF);
+	Byte DACB_Highernib_bm = (((uint16_t) &RXBUFFER[0] >> 8) & 0xFF);
+
+	AT_DMAB_CH.SRCADDR0 = AT_USART_Lowernib_bm;
+	AT_DMAB_CH.SRCADDR1 =  AT_USART_Highernib_bm;
+	AT_DMAB_CH.SRCADDR2  = 0x00;
+	
+	//Configure DMA destination address to DACB CH1's input
+	AT_DMAB_CH.DESTADDR0 = DACB_Lowernib_bm;
+	AT_DMAB_CH.DESTADDR1 = DACB_Highernib_bm;
+	AT_DMAB_CH.DESTADDR0 = 0x00;
+	
+	
+	//enable DMA channel
+	//AT_DMAB_CH.CTRLA |=  DMA_ENABLE_bm;
+}
 
 /*
 	last_change_res
@@ -189,7 +294,7 @@ int last_change_res(void)
 	int i = 0;
 	while(i < 1023)
 	{
-		if(BUFFER[i] == '\0')
+		if(RXBUFFER[i] == '\0')
 		{
 			return i;
 		}
@@ -208,14 +313,14 @@ int last_change_res(void)
 */
 char* return_AT_res(int start_index)
 {
-		memset(CURR_BUFFER,0,(BUFF_LEN/4)*sizeof(char));
+		memset(AT_RETURN_BUFFER,0,(RXBUFF_LEN/4)*sizeof(char));
 
 		int end_s = last_change_res();
 		for(int i=start_index, j=0; i < end_s; i++,j++)
 		{
-			CURR_BUFFER[j] = BUFFER[i];
+			AT_RETURN_BUFFER[j] = RXBUFFER[i];
 		}
-		return CURR_BUFFER;
+		return AT_RETURN_BUFFER;
 }
 
 
@@ -228,7 +333,7 @@ char* AT_Reset(void)
 {
 	int begin_r = last_change_res();
 	sendString("AT+RST\r\n");
-	_delay_ms(7000);
+	_delay_ms(RES_DLY);
 	return return_AT_res(begin_r);
 }
 
@@ -258,7 +363,7 @@ char* AT_set_ssid(char* ssid, char* pwd, char* ch, char* ecn)
 	char command[50];
 	sprintf(command, "AT+CWSAP=\"%s\",\"%s\",%s,%s\r\n",ssid,pwd,ch,ecn);
 	sendString(command);
-	_delay_ms(2);
+	_delay_ms(COMM_DLY);
 	return return_AT_res(begin_r );
 		
 }
@@ -312,7 +417,7 @@ char* AT_AP_mode(int mode)
 		sprintf(command, "AT+CWMODE=%i\r\n",mode);
 		sendString(command);			
 	}
-		_delay_ms(2);
+		_delay_ms(COMM_DLY);
 		return return_AT_res(begin_r );
 }
 
@@ -344,7 +449,7 @@ char* AT_APConnect(char* ssid, char* pwd)
 			sprintf(command, "AT+CWJAP=\"%s\",\"%s\"\r\n",ssid, pwd);
 			sendString(command);
 		}
-			_delay_ms(7000);
+			_delay_ms(RES_DLY);
 			return return_AT_res(begin_r);
 
 }
@@ -354,7 +459,7 @@ char* AT_APDisconnect(void)
 {
 	int begin_r = last_change_res();
 	sendString("AT+CWQAP\r\n");
-	_delay_ms(2);
+	_delay_ms(COMM_DLY);
 	return return_AT_res(begin_r);
 }
 
@@ -366,7 +471,7 @@ char* AT_ListAP(void)
 {
 	int begin_r = last_change_res();
 	sendString("AT+CWLAP\r\n");
-	_delay_ms(4000);
+	_delay_ms(RES_DLY);
 	return return_AT_res(begin_r);
 }
 
@@ -376,7 +481,7 @@ char* AT_ListClients(void)
 {
 	int begin_r = last_change_res();
 	sendString("AT+CWLIF\r\n");
-	_delay_ms(2);
+	_delay_ms(COMM_DLY);
 	return return_AT_res(begin_r);
 }
 
@@ -425,7 +530,7 @@ char* AT_ips(char st_ap, char* ip)
 		sendString(command);
 
 	}
-	_delay_ms(1500);
+	_delay_ms(COMM_DLY);
 	return return_AT_res(begin_r);	
 	
 	
@@ -443,9 +548,9 @@ Parameters:
 id? ID no. of connection to close, when id=5, all connections will be closed.
 Note:
 if id == 6 tests command
-
+for single connection, use id = -1
 In server mode, id = 5 has no effect!
-negative ids have no effect!
+
 */
 char* AT_IP_Close(int id)
 {
@@ -455,7 +560,7 @@ char* AT_IP_Close(int id)
 	{
 		sendString("AT+CIPCLOSE=?\r\n");
 	}
-	else if (id < 6 && id >= 0)
+	else if (id < 6 && id >= -1)
 	{
 		//single mode
 		if(id < 0)
@@ -463,14 +568,13 @@ char* AT_IP_Close(int id)
 			sendString("AT+CIPCLOSE\r\n");
 		}
 		//multimode
-		else
+		else if (id >=0)
 		{
-			
 			sprintf(command,"AT+CIPCLOSE=%i\r\n",id);
 			sendString(command);
 		}
 	}
-		_delay_ms(2);
+		_delay_ms(COMM_DLY);
 		return return_AT_res(begin_r);
 }
 
@@ -512,7 +616,7 @@ char* AT_MUX(int mode)
 		sprintf(command,"AT+CIPMUX=%i\r\n",mode);
 		sendString(command);	
 	}
-	_delay_ms(2);
+	_delay_ms(COMM_DLY);
 	return return_AT_res(begin_r);
 }
 
@@ -555,10 +659,31 @@ char* AT_IP_Start(int id, char* type, char* addr, int port)
 		
 		sendString(command);	
 	}
-
+	_delay_ms(COMM_DLY);
 	return return_AT_res(start_s );
 }
 
+
+//AT+CIPMODE - set mode
+/*
+	Parameters:
+
+	mode:
+	0: normal mode
+	1: unvarnished transmission mode
+
+
+*/
+void AT_IP_Mode(int mode)
+{
+	char command[30];
+	if(mode >= 0 && mode <= 1)
+	{
+		sprintf(command,"AT+CIPMODE=%i\r\n",mode);
+		sendString(command);
+	}
+	_delay_ms(COMM_DLY);
+}
 
 //AT+CIPSEND - Send data
 /*
@@ -606,12 +731,12 @@ char* AT_sendData(int id, char* data)
 		sendString(command);
 		
 		//wait for command to be registered
-		_delay_ms(1);
+		_delay_ms(COMM_DLY);
 		
 		//send the data
 		sendString(data);
 	}
-	_delay_ms(2);
+	_delay_ms(COMM_DLY);
 	return return_AT_res(begin_r);
 }
 
@@ -622,7 +747,7 @@ char* AT_ifconfig(void)
 {
 	int begin_r = last_change_res();
 	sendString("AT+CIFSR\r\n");
-	_delay_ms(2);
+	_delay_ms(COMM_DLY);
 	return return_AT_res(begin_r);
 }
 
@@ -650,22 +775,31 @@ char* AT_Server_Conf(int mode, int port)
 	char command[40];
 	if(mode <2)
 	{
-		
-		//check for the port number, if not a natural number, set to default
-		if(port <= 0)
+		if(port == -1 && mode == 0)
 		{
-			port = 333;
+			sprintf(command,"AT+CIPSERVER=%i\r\n",mode);
+			sendString(command);
 		}
-		sprintf(command,"AT+CIPSERVER=%i,%i\r\n",mode, port);
-		sendString(command);
+		else
+		{
+			//check for the port number, if not a natural number, set to default
+			if(port <= -1)
+			{
+				port = 333;	
+			}
+			
+			sprintf(command,"AT+CIPSERVER=%i,%i\r\n",mode, port);
+			sendString(command);
+		}
 		//if deleted server, needs to follow by reset
 		if(mode == 0)
 		{
-			_delay_ms(1);
+			_delay_ms(COMM_DLY);
 			AT_Reset();
+			_delay_ms(COMM_DLY*10);
 		}
 	}
-	_delay_ms(300);
+	_delay_ms(COMM_DLY);
 	return return_AT_res(begin_r);
 }
 
@@ -694,6 +828,6 @@ char* AT_STimeout(int timeout)
 		sprintf(command,"AT+CIPSTO=%i\r\n",timeout);
 		sendString(command);
 	}
-	_delay_ms(300);
+	_delay_ms(COMM_DLY);
 	return return_AT_res(begin_r);
 }

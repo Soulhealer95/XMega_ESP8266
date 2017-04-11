@@ -59,27 +59,35 @@
 #define F_CPU 32000000
 #include <util/delay.h>
 
-#define BUFF_LEN 4096
-#define LIMIT 1024
+#define RXBUFF_LEN 5000
+#define RXLIMIT 3500
 #define AT_USART USARTE0
-#define AT_DMACH DMA.CH2
-#define AT_DMA_vect DMA_CH2_vect
+#define AT_DMACH DMA.CH0
+#define AT_DMAB_CH DMA.CH1
+#define AT_DMA_vect DMA_CH0_vect
 #define Byte char
+//set delays
+#define  COMM_DLY 30
+#define RES_DLY  6000
 
-char str_res[BUFF_LEN];
-char AT_output[BUFF_LEN/4];
+char str_res[RXBUFF_LEN];
+char AT_output[RXBUFF_LEN/4];
+char rx_buff_2[RXBUFF_LEN];
 
 // Definitions based on the variables
-#define BUFFER str_res
-#define CURR_BUFFER AT_output
-
+#define RXBUFFER str_res
+#define RXBACKUP rx_buff_2
+#define AT_RETURN_BUFFER AT_output
 
 //Serial Functions
 void Serial_conf(void);
 void Tx_Wait(void);
 void Rx_Wait(void);
+void RX_Address_Reset(void);
+void RX_Backup_Address_Reset(void);
+void RX_Toggle_DMACH(int* toggle_bit);
 void Rx_DMA_Conf(void);
-
+void Rx_BDMA_Conf(void);
 int sendChar(char c);
 void sendString(char* string);
 
@@ -102,9 +110,10 @@ char* AT_ips(char st_ap_loc, char* ip);
 
 //start a tcp/udp connection
 char* AT_IP_Start(int id, char* type, char* addr, int port);
-
+void AT_IP_Mode(int mode);
 //send data
 char* AT_sendData(int id, char* data);
+
 
 char* AT_IP_Close(int id);
 
@@ -118,4 +127,3 @@ char* AT_STimeout(int timeout);
 char* AT_Reset(void);
 char* AT_MUX(int mode);
 char* AT_ifconfig(void);
-
